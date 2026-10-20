@@ -1,67 +1,71 @@
 import torch
-from PIL import Image, ImageOps, ImageFilter
-import torchvision.transforms as transforms
-from model import MLPModel
+from PIL import Image, ImageOps
 import matplotlib.pyplot as plt
+from torchvision import transforms
+from model import MLPModel
 
-# 1. Modeli Başlat ve Eğitilmiş Ağırlıkları (Weights) Yükle
-model = MLPModel()
-data = torch.load('training_results.pth')
-model.load_state_dict(data['model_state_dict'])
-model.eval() # Ağırlık güncellemelerini kapat, test (inference) moduna geç
+# 1. Modelin Başlatılması ve Ağırlıkların Yüklenmesi
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = MLPModel().to(device)
 
-# 2. Gerçek Dünya Verisini (El Yazısı) Sisteme Yükle
-resim_yolu = 'rakam.jpeg'
-img = Image.open(resim_yolu).convert('L') # Görüntüyü gri tonlamalı (Grayscale) matrise çevir
+# Eğitim checkpoint dosyasından sadece model ağırlıklarını (state_dict) ayıklayarak yüklüyoruz
+checkpoint = torch.load('training_results.pth', map_location=device)
+model.load_state_dict(checkpoint['model_state_dict'])
 
-# MNIST formatına uyum için renkleri tersine çevir (Siyah arka plan, beyaz rakam)
-img = ImageOps.invert(img)
+# Modeli değerlendirme (evaluation) moduna al
+model.eval()
 
-# --- GÖRÜNTÜ ÖN İŞLEME (PREPROCESSING) ADIMLARI ---
-
-# A. Gürültü Azaltma (Gaussian Blur): Fotoğraftaki pürüzleri ve hafif gölgeleri temizle
-img = img.filter(ImageFilter.GaussianBlur(radius=1))
-
-# B. Eşikleme (Thresholding): Gri tonları net siyah veya beyaz piksellere ayır
-# Yoğunluğu 80'in üzerinde olan pikselleri maksimum değere (255) çek
-img = img.point(lambda p: 255 if p > 80 else 0)
-
-# C. Morfolojik Genişletme (Dilation): Modelin algılayabilmesi için rakam çizgilerini kalınlaştır
-img = img.filter(ImageFilter.MaxFilter(size=3))
-
-# D. Otomatik Kırpma (Bounding Box): Sadece rakamın bulunduğu aktif pikselleri izole et
-bbox = img.getbbox()
-if bbox:
-    img = img.crop(bbox)
-
-# E. Dolgu (Padding): MNIST veri dağılımına (distribution) benzemesi için rakamı merkeze oturt
-w, h = img.size
-max_dim = max(w, h)
-padding_w = (max_dim - w) // 2 + int(max_dim * 0.2)
-padding_h = (max_dim - h) // 2 + int(max_dim * 0.2)
-img = ImageOps.expand(img, border=(padding_w, padding_h), fill='black')
-# ---------------------------------------------------
-
-# 3. Boyutlandırma ve Tensor Dönüşümü
+# 2. Görüntü Ön İşleme (Preprocessing) Adımları
+# Dışarıdan verilen fotoğrafları MNIST standartlarına (28x28 boyut, normalizasyon) uyarlar
 transform = transforms.Compose([
-    transforms.Resize((28, 28)), # Uzamsal boyutu 28x28 piksele indirge
-    transforms.ToTensor(),       # [0, 1] aralığında PyTorch Tensörüne çevir
-    transforms.Normalize((0.1307,), (0.3081,)) # Z-Score Normalizasyonu
+    transforms.Resize((28, 28)),
+    transforms.ToTensor(),
+    transforms.Normalize((0.1307,), (0.3081,))
 ])
 
-# Tensör boyutunu (Batch, Channel, Height, Width) formatına uyarla
-img_tensor = transform(img).unsqueeze(0)
+okul_numarasi = ""
+toplam_hane = 11
 
-# 4. İleri Yayılım (Forward Pass) ve Tahmin (Inference)
-with torch.no_grad(): # Bellek tasarrufu için gradient hesaplamasını devre dışı bırak
-    output = model(img_tensor)
-    _, predicted = torch.max(output.data, 1) # En yüksek olasılıklı sınıfı (argmax) seç
+# Matplotlib figür ayarları: 11 haneli sayı için yan yana kutucuklar oluştur
+fig, axes = plt.subplots(1, toplam_hane, figsize=(16, 3))
+fig.suptitle("Okul Numarası Tahmini", fontsize=16)
 
-tahmin_edilen_rakam = predicted.item()
-print(f"\n---> Modelin Gerçek Dünya Verisi İçin Tahmini: {tahmin_edilen_rakam} <---")
+# 3. Ardışık Rakam Okuma ve Tahmin Döngüsü
+for i in range(1, toplam_hane + 1):
+    dosya_adi = f"sayi{i}.jpeg"
+    
+    try:
+        # Görüntüyü gri tonlamalı aç ve renkleri tersine çevir (Siyah arka plan, beyaz rakam)
+        img = Image.open(dosya_adi).convert('L')
+        img = ImageOps.invert(img)
+        
+        # Görüntüyü tensöre çevirip cihaza (CPU/GPU) aktar
+        img_tensor = transform(img).unsqueeze(0).to(device)
+        
+        # Gradyan hesaplamasını kapatarak modeli test et
+        with torch.no_grad():
+            output = model(img_tensor)
+            prediction = output.argmax(dim=1).item()
+            
+        okul_numarasi += str(prediction)
+        
+        # Modelin algıladığı görüntüyü ve tahminini ekranda göster
+        axes[i-1].imshow(img, cmap='gray')
+        axes[i-1].set_title(str(prediction))
+        axes[i-1].axis('off')
+        
+    except FileNotFoundError:
+        # Klasörde ilgili rakam fotoğrafı bulunamazsa uyarı ver
+        print(f"Uyarı: {dosya_adi} bulunamadı!")
+        axes[i-1].set_title("HATA")
+        axes[i-1].axis('off')
+        okul_numarasi += "?"
 
-# İşlemden geçmiş (preprocessed) görüntüyü ve tahmin sonucunu ekranda görselleştir
-plt.imshow(img, cmap='gray')
-plt.title(f"Modelin Tahmini: {tahmin_edilen_rakam}")
-plt.axis('off')
+# 4. Sonuçların Yazdırılması ve Görselin Kaydedilmesi
+print("\n" + "="*40)
+print(f"MODELİN OKUDUĞU OKUL NUMARASI: {okul_numarasi}")
+print("="*40 + "\n")
+
+plt.tight_layout()
+plt.savefig("okul_numarasi_sonuc.png")
 plt.show()

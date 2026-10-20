@@ -4,11 +4,11 @@ Bu proje, PyTorch kullanılarak geliştirilmiş bir Çok Katmanlı Algılayıcı
 
 ## 1. Model Mimarisi
 Model, uzamsal veriyi (2D) tek boyutlu bir tensöre (1D) düzleştirerek (flatten) işleyen standart bir ileri beslemeli sinir ağıdır.
-* **Girdi Katmanı:** 784 düğüm (28x28 piksel)
-* **1. Gizli Katman:** 256 düğüm (Aktivasyon: ReLU)
-* **2. Gizli Katman:** 128 düğüm (Aktivasyon: ReLU)
-* **Çıktı Katmanı:** 10 düğüm (0-9 arası rakam sınıfları, Logits)
-* **Optimizasyon & Kayıp:** Adam Optimizer (lr=0.001), CrossEntropyLoss
+- **Girdi Katmanı:** 784 düğüm (28x28 piksel)
+- **1. Gizli Katman:** 256 düğüm (Aktivasyon: ReLU)
+- **2. Gizli Katman:** 128 düğüm (Aktivasyon: ReLU)
+- **Çıktı Katmanı:** 10 düğüm (0-9 arası rakam sınıfları, Logits)
+- **Optimizasyon & Kayıp:** Adam Optimizer (lr=0.001), CrossEntropyLoss
 
 ## 2. Görüntü Ön İşleme (Preprocessing) Adımları
 Modelin kendi el yazımı doğru algılayabilmesi için `predict.py` içerisinde MNIST standartlarına birebir uygun bir ön işleme boru hattı (pipeline) tasarlanmıştır:
@@ -19,10 +19,10 @@ Modelin kendi el yazımı doğru algılayabilmesi için `predict.py` içerisinde
 
 ## 3. Eğitim Metrikleri ve Sonuçlar
 Model, 5 epoch boyunca %15 validation ayrımıyla eğitilmiştir. 
-* **Optimum Train Loss:** ~0.035
-* **Optimum Validation Loss:** ~0.080
-* **Test Accuracy (Hiç görülmemiş MNIST test verisi):** %97.5+
-* **Eğitim Süresi:** ~20 saniye
+- **Optimum Train Loss:** ~0.035
+- **Optimum Validation Loss:** ~0.080
+- **Test Accuracy (Hiç görülmemiş MNIST test verisi):** %97.5+
+- **Eğitim Süresi:** ~20 saniye
 
 *(Not: Eğitim sürecine ait Loss ve Accuracy grafikleri dizindeki `grafikler.png` dosyasında yer almaktadır.)*
 ![Eğitim Grafikleri](grafikler.png)
@@ -40,18 +40,9 @@ Bu hatalar tesadüfi değildir ve doğrudan **MLP (Multi-Layer Perceptron) mimar
 
 ---
 
-## 5. Kapsamlı El Yazısı Test Seti (0-9)
-Modelin gerçek dünya verisi üzerindeki algı sınırlarını tam olarak ölçmek için 0'dan 9'a kadar tüm rakamlar tek tek test edilmiştir. Aşağıdaki tabloda ham el yazısı fotoğrafları ile modelin ön işleme sonrası algıladığı matris ve tahmin sonuçları karşılaştırmalı olarak sunulmuştur.
+## 5. Gerçek Dünya Uygulaması: 11 Haneli Okul Numarası Tanıma
+Modelin ardışık veri işleme yeteneğini pratik bir senaryoda test etmek amacıyla, 11 haneli okul numaram bağımsız el yazısı görselleri halinde (`sayi1.jpeg` - `sayi11.jpeg`) hazırlanmış ve modele sırayla beslenmiştir.
 
-| Rakam | Ham El Yazısı Görüntüsü | Modelin Tahmin Çıktısı (Matris) |
-| :---: | :---: | :---: |
-| **0** | <img src="0.jpeg" width="100"> | <img src="Figure_0.png" width="180"> |
-| **1** | <img src="1.jpeg" width="100"> | <img src="Figure_1.png" width="180"> |
-| **2** | <img src="2.jpeg" width="100"> | <img src="Figure_2.png" width="180"> |
-| **3** | <img src="3.jpeg" width="100"> | <img src="Figure_3.png" width="180"> |
-| **4** | <img src="4.jpeg" width="100"> | <img src="Figure_4.png" width="180"> |
-| **5** | <img src="5.jpeg" width="100"> | <img src="Figure_5.png" width="180"> |
-| **6** | <img src="6.jpeg" width="100"> | <img src="Figure_6.png" width="180"> |
-| **7** | <img src="7.jpeg" width="100"> | <img src="Figure_7.png" width="180"> |
-| **8** | <img src="8.jpeg" width="100"> | <img src="Figure_8.png" width="180"> |
-| **9** | <img src="9.jpeg" width="100"> | <img src="Figure_9.png" width="180"> |
+Özel olarak geliştirilen tahmin betiği, döngü içerisinde görüntü ön işleme pipeline'ını tüm rakamlara tek tek uygulamış ve modelin ürettiği sonuçları birleştirerek aşağıdaki okul numarası dizilimini başarıyla elde etmiştir:
+
+![11 Haneli Okul Numarası Testi](okul_numarasi_sonuc.png)
